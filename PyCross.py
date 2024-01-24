@@ -81,7 +81,7 @@ class Board:
     UNKNOWN_STR         = ". "
     UNKNOWN_STR_ANSI    = Style.DIM + UNKNOWN_STR + Style.RESET_ALL
     FILLED_STR          = "* "
-    FILLED_STR_ANSI     = Style.BRIGHT + Back.WHITE + "  " + Style.RESET_ALL
+    FILLED_STR_ANSI     = Style.BRIGHT + Back.WHITE + " " + Style.RESET_ALL + " "
     BLANK_STR           = "  "
     BLANK_STR_ANSI      = BLANK_STR
     cell_strs           = [ UNKNOWN_STR, FILLED_STR, BLANK_STR ]
@@ -132,6 +132,9 @@ class Board:
         
         #
         # rule full - hints just fit
+        #
+        # Note - The recursive fitter might make this not 
+        #    necessary though it'll be faster when hit
         #
         left = 0
         while( slice[left] == self.BLANK ):
