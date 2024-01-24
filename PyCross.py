@@ -12,15 +12,27 @@
 
 VERSION = 0.01
 
+# import standard libs
 import argparse
 from enum import Enum
 import sys
 
+# import installed packages
 from colorama import Fore, Back, Style
 import numpy
 
+# import my packages
+from Config import Config, read_config_file
+
 global config
 config = None    # class Config
+
+# ----------------------------------------------------------------------------
+# Our Solve Exceptions
+# ----------------------------------------------------------------------------
+class SolveError( Exception ):
+    def __init__( self, message ):
+        super().__init__(message)
 
 # ----------------------------------------------------------------------------
 # A board state
@@ -29,23 +41,43 @@ config = None    # class Config
 class Board:
     """Board state for one move"""
     
+    # Cell states
     UNKNOWN = 0
     FILLED  = 1
     BLANK   = 2
     
+    def __init__( self ):
+        self.grid           :numpy.array    = None      # the board state
+        self.step           : int           = 1         # what solving step
+        self.row_solved     :numpy.array    = None      # whether each row is solved and can be ignored    
+        self.col_solved     :numpy.array    = None      # whether each col is solved and can be ignored
+    
     # make a new blank board
     def blank() -> 'Board':
-        board        = Board()
-        board.grid  = numpy.zeros( ( config.rown, config.coln ), numpy.uint8 )   # 0 is UNKNOWN
+        "Return new blank Board"
+        board               = Board()
+        board.step          = 1
+        board.grid          = numpy.zeros( ( config.rown, config.coln ), numpy.uint8 )   # 0 is UNKNOWN
+        board.row_solved    = numpy.zeros( config.rown, numpy.uint8 )
+        board.col_solved    = numpy.zeros( config.coln, numpy.uint8 )
+        #board.row_solved    = [ False ] * config.rown
+        #board.col_solved    = [ False ] * config.coln
         return board
        
-    # return new Board from current Board
     def copy( self ) -> 'Board':
+        "Return deep copy Board from passed Board"
         board = Board()
-        board.grid = numpy.copy( self.grid )
+        board.grid          = numpy.copy( self.grid )
+        board.row_solved    = numpy.copy( self.row_solved )
+        board.col_solved    = numpy.copy( self.col_solved )
+        board.step          = self.step + 1
+        #board.row_solved    = [ b for b in self.row_solved ]
+        #board.col_solved    = [ b for b in self.col_solved ]
         return board
-        
-    # return printable copy - test
+
+    #
+    # return printable copy
+    #
     UNKNOWN_STR         = ". "
     UNKNOWN_STR_ANSI    = Style.DIM + UNKNOWN_STR + Style.RESET_ALL
     FILLED_STR          = "* "
@@ -57,213 +89,131 @@ class Board:
 
     def printable( self, console:bool ) -> list[str]:
         lines = []
+        # just add the column headers - easy
         lines += config.col_hdrs
+
+        # add the step # in the upper left
+        step_str = f"{self.step:>4}"
+        step_len = len( step_str )  # before we add ANSI
+        if console:
+            step_str = Fore.CYAN + step_str + Style.RESET_ALL
+        lines[0] = step_str + lines[0][step_len:]
+
+        # decide to use ANSI strings (for console) or non-ANSI (for file)
         strs = self.cell_strs_ansi if console else self.cell_strs
-        # Would add board state here!
+        # for each row
         for y in range( config.rown ):
+            # start a new line with the row header
             line = [ config.row_hdrs[y] ]
+            # for each col
             for x in range( config.coln ):
+                # add the cell state
                 line.append( strs[ self.grid[y,x] ])
+            # then join all the cells for the final line
             lines.append(  "".join( line ) )
-
+        lines.append( "" )    # and a blank
         return lines
-
-
-# ----------------------------------------------------------------------------
-# Reading the config file and return a Config class
-# ----------------------------------------------------------------------------
-
-class Config:
-    """Config parsed from the infile"""
     
-    def __init__( self, rown: int, coln: int ) -> None:
-        self.rown           :int        = rown
-        self.coln           :int        = coln
-        self.args                       = None          # argparse - will be set by read_config_file
-        self.outfile                    = None          # output file, if asked for
-        self.rows  :list[ list[int] ]   = [ [] for i in range(rown) ] # Empty for now
-        self.cols  :list[ list[int] ]   = [ [] for i in range(coln) ] #    These are [ [1, 3, 2], [], [10], etc ] one per row/col
-        self.row_hdrs       :list[str]  = [ ]           # will generate after reading config file
-        self.col_hdrs       :list[str]  = [ ]           #    Both are just the text to add, can be generated up front 
-        self.row_hdr_width  :int        = 1             # till we read otherwise from config file
-        self.col_hdr_height :int        = 1
+
+    def solve_slice( self, slice :numpy.array, hints :list[int] ) -> ( bool, bool ):
+        """
+        Try to knock out items in a row or column, we don't care which one.  
+        May modify slice directly. Returns ( changed?, done? )
+        """
         
+        count = len(slice)
 
-class ParseState( Enum ):
-    SIZE        = 1
-    ROWHEADER   = 2
-    ROWS        = 3
-    COLHEADER   = 4
-    COLS        = 5
-    DONE        = 6
-    
-def read_config_file( args: argparse.Namespace ):
-    
-    # open the file
-    try: 
-        with open( args.infile ) as f:
-            lines = [ l.strip() for l in f.readlines() ]
-    except Exception as ex:
-        print( f"*** Couldn't open {args.infile}:", file = sys.stderr )
-        print( f"{ex}", file = sys.stderr )
-        sys.exit( 1 )
-    
-    state :ParseState = ParseState.SIZE
-    for line in lines:
-        # print( state, line )        
-
-        # skip comments
-        if line.startswith( "#" ) or line.startswith( ";" ) or line.startswith( "//" ):
-            continue
+        #
+        # rule 'zero' - 0 length means we're done
+        #
+        if not hints:
+            slice.fill( self.BLANK )
+            return ( True, True )
         
-        match state:
-            # expect [rows] x [cols] 
-            case ParseState.SIZE:
-                if line == "":
-                    continue
-                rc = line.split( 'x' )
-                try:
-                    rown, coln = int( rc[0] ), int( rc[1] )
-                except Exception as ex:    # probably ValueError
-                    print( f"Line '{line}':  expected '[rows]x[cols]' like '10x10'", file = sys.stderr )
-                    sys.exit( 2 )
-                if rown < 1 or coln < 1:
-                    print( f"Line '{line}':  [rows]x[cols] must be positive non-zero!", file = sys.stderr )
-                    sys.exit( 2 )
-                # print( f"{coln} x {rown}")
-                config          = Config( rown, coln )
-                config.args     = args
-                state           = ParseState.ROWHEADER
-             
-            case ParseState.ROWHEADER:
-                if line == "":
-                    continue
-                uline = line.upper()
-                if uline != "ROWS:":
-                    print( f"Line '{line}':  expected 'Rows:' header", file = sys.stderr )
-                    sys.exit( 2 )
-                state       = ParseState.ROWS
-                idx :int    = 0
-            
-            case ParseState.ROWS:
-                r : list[int] = config.rows[ idx ]
-                width :int = 1
-                if line != "0":     # allow just '0' as blank line
-                    try:
-                        split = line.replace( ',', ' ' ).split( ' ' )   # split on , or space
-                        for s in split:
-                            n = int( s )
-                            if n < 1:
-                                print( f"Line '{line}': each Rows entry must be positive non-zero integer!", file = sys.stderr )
-                                sys.exit( 2 )
-                            r.append( n )
-                            width += 2   # the number and a space
-                            if n > 9:
-                                width += 1
-                    except Exception as ex:
-                        print( f"Line '{line}': each Rows entry must be positive non-zero integer!", file = sys.stderr )
-                        sys.exit( 2 )
-                if width > config.row_hdr_width:
-                    config.row_hdr_width = width
-                idx += 1
-                if idx >= config.rown:
-                    state = ParseState.COLHEADER
-            
-            case ParseState.COLHEADER:
-                if line == "":
-                    continue
-                uline = line.upper()
-                if uline != "COLS:" and uline != "COLUMNS:":
-                    print( f"Line '{line}':  expected 'Cols:' or 'Columns:' header", file = sys.stderr )
-                    sys.exit( 2 )
-                state = ParseState.COLS
-                idx   = 0
-            
-            case ParseState.COLS:
-                c = config.cols[ idx ]
-                height  = 0
-                if line != "0":     # allow just '0' as blank line
-                    try:
-                        split = line.replace( ',', ' ' ).split( ' ' )   # split on , or space
-                        for s in split:
-                            n = int( s )
-                            if n < 1:
-                                print( f"Line '{line}': each Cols entry must be positive non-zero intenger!", file = sys.stderr )
-                                sys.exit( 2 )
-                            c.append( n )
-                            height += 2         # number, then maybe space
-                            if n > 9:
-                                height += 1     # need second digit
-                    except Exception as ex:
-                        print( f"Line '{line}': each Cols entry must be positive non-zero intenger!", file = sys.stderr )
-                        sys.exit( 2 )
-                height -= 1   # one of them doesn't need a space
-                if height > config.col_hdr_height:
-                    config.col_hdr_height = height
-                idx += 1
-                if idx >= config.coln:
-                    state = ParseState.DONE
+        #
+        # rule full - hints just fit
+        #
+        left = 0
+        while( slice[left] == self.BLANK ):
+            left += 1
+        right = count - 1
+        while( slice[right] == self.BLANK ):
+            right -= 1
+        available = right - left + 1
+        if available == 0:  # should not get here, but handle it as a done row
+            return( True, True )
+        hints_len = sum( hints ) + len( hints ) - 1
+        if hints_len > available:
+            print( f"Hints ({hints_len}) are larger than available space ({available})" )
+            raise SolveError( f"Hints ({hints_len}) are larger than available space ({available})" )
+        if hints_len == available:  # the whole line is filled, hooray!
+            for hint in hints:
+                for x in range(hint):
+                    slice[left] = self.FILLED
+                    left += 1
+                if left < count:    # last one may be at end
+                    slice[left] = self.BLANK
+                    left += 1
+            return( True, True )
+        
+        return ( False, False )
 
-            case ParseState.DONE:
-                if line == "":
-                    continue
-                uline = line.upper()
-                if uline != "DONE":
-                    print( f"Line '{line}': expected 'DONE'", file = sys.stderr )
-                    sys.exit( 2 )
-        # end of match state
 
-        if args.outfile:
-            try: 
-                config.outfile = open( args.outfile, 'w' )
-            except Exception as ex:
-                print( f"*** Couldn't open output file '{args.outfile}':", file = sys.stderr )
-                print( f"{ex}", file = sys.stderr )
-                sys.exit( 3 )
+    def solve_next( self ) -> ( 'Board', bool, bool, bool ):
+        """
+        Try to find the next changes in the board, returns ( new board, changed?, done?, dead? )
+           new_board may be the same as the old board. It is for now!
+        """
+        
+        changes   :bool = False
+        rows_done :int  = 0
+        cols_done :int  = 0
+        
+        board.step += 1
+
+        # do rows
+        for y in range( config.rown ):
+            if self.row_solved[y]:
+                rows_done += 1
+                continue
+            row = self.grid[y]    # get row y
+            try:
+                ( changed, done ) = self.solve_slice( row, config.rows[ y ] )
+            except SolveError as ex:
+                print( f"{Style.BRIGHT}{Fore.RED}* {Style.RESET_ALL} Row {y+1} ( {config.rows[y]} ):" )
+                print( ex )
+                return( board, False, False, True )
                 
+            if changed:
+                changes = True
+                self.grid[y] = row
+            if done:
+                self.row_solved[y] = True
+                rows_done += 1
+            
+        # do cols            
+        for x in range( config.coln ):
+            if self.col_solved[x]:
+                cols_done += 1
+                continue
+            col = self.grid[:,x]    # get col x
+            try:
+                ( changed, done ) = self.solve_slice( col, config.cols[ x ] )
+            except SolveError as ex:
+                print( f"{Style.BRIGHT}{Fore.RED}* {Style.RESET_ALL} config {y+1} ( {config.cols[y]} ):" )
+                print( ex )
+                return( board, False, False, True )
+            if changed:
+                changes = True
+                self.grid[:,x] = col
+            if done:
+                self.col_solved[x] = True
+                cols_done += 1
+        
+        done = ( rows_done == config.rown ) and ( cols_done == config.coln )
+        return ( board, changes, done, False )
+            
 
-    # We've parsed everything, now generate the row and column headers
-
-    # rows are easy, just add them as we generate them
-    for y in range( config.rown ):
-        hdr = ""
-        for n in config.rows[y]:
-            hdr = hdr + str(n) + " "
-        hdr = hdr.rjust( config.row_hdr_width )
-        config.row_hdrs.append( hdr + "|" )
-    
-    # cols are harder - they need to be basically rotated 90
-    # [ 1, 2, 3, 2 ]  "1| | "   
-    # [ 4,  4 ]   ->  " | | "
-    # [ 10, 2 ]       "2| | " 
-    #                 " | |1"
-    #                 "3|4|0"              
-    #                 " | | "
-    #                 "2|4|2"
-    #                 "--------"
-    hdrs = [ [ ' ' for x in range(config.coln) ] for y in range(config.col_hdr_height) ]  # [ [line 1 entries ], [ line 2 entries ], ... ]
-    for x in range(config.coln):               # for each col header
-        y = config.col_hdr_height - ( len(config.cols[x]) * 2 - 1 )  # leave room for spaces
-        for n in config.cols[x]:    # leave space for 2 digit numbers
-            if n >= 10:
-                y -= 1
-        for n in config.cols[x]:
-            if n >= 10:
-                hdrs[y][x] = str( int( n/10 ) )
-                n = n % 10
-                y += 1
-            hdrs[y][x] = f"{n}"
-            y += 2
-    # now just join then with |
-    left = " " * len( config.row_hdrs[0] )
-    for y in range( config.col_hdr_height ):
-        # enough on the left for row headers
-        config.col_hdrs.append( left + "|".join( hdrs[y]) )
-    # and add a "--------------" at the bottom
-    config.col_hdrs.append( left.ljust( len( config.col_hdrs[0] ), '-' ) )
-
-    return config
-                
 
 # ----------------------------------------------------------------------------
 # Output to console and/or file
@@ -291,7 +241,7 @@ if __name__ == "__main__":
     parser.add_argument( "infile",              help = "file that describes the nonogram" )
     parser.add_argument( "-H", "--filehelp",    help = "show expected infile format", dest="filehelp", action = "store_true" )
     parser.add_argument( "-v", "--verbose",     help = "be more verbose", dest="verbose", action = "store_true" )
-    parser.add_argument( "-l", "--lines",       help = "print lines between rows and columns", dest="lines", action = "store_true" )
+    #parser.add_argument( "-l", "--lines",       help = "print lines between rows and columns", dest="lines", action = "store_true" )
     parser.add_argument( "-p", "--per-line",    help = "how many solve steps to show per line", dest="perline", type = int, default = 1 )
     parser.add_argument( "-o", "--out-file",    help = "also write output to specified file", dest="outfile", default = "" )
     parser.add_argument( "-q", "--quiet",       help = "don't even write output to console", dest="quiet", action = "store_true" )
@@ -322,11 +272,31 @@ if __name__ == "__main__":
     
     config = read_config_file( args )
     
-    output( f"{config.rown} rows x {config.coln} cols")
+    output( f"\n* {Fore.CYAN}{args.infile}{Style.RESET_ALL} - {Fore.BLUE}{Style.BRIGHT}{config.rown} rows x {config.coln} cols{Style.RESET_ALL}\n")
     
     board = Board.blank()
-    lines = board.printable( console=True )
-    print( "\n".join( lines ) )
+    
+    while True:
+        # TODO: Combine lines for --per-line
+        if not args.quiet:
+            lines = board.printable( console=True )
+            print( "\n".join( lines ) )
+        if config.outfile:
+            lines = board.printable( console=False )
+            config.outfile.writelines( lines )
+        ( new_board, changed, done, dead ) = board.solve_next()
+        # print( changed, done, dead )
+        if dead: 
+            break
+        if done:
+            print( f"{Fore.GREEN}{Style.BRIGHT}SOLVED!{Style.RESET_ALL}" )
+            break
+        if not changed:
+            print( f"{Fore.RED}{Style.BRIGHT}Unsolved, but couldn't find anything else to do.{Style.RESET_ALL}" )
+            break
+        board = new_board      # might be the same anyhow
+        
+        
     
     
     
