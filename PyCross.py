@@ -16,8 +16,9 @@ VERSION = 1.00
 import argparse
 from   enum import Enum
 import random
-import traceback
 import sys
+import time
+import traceback
 
 # import installed packages
 from   colorama import Fore, Back, Style
@@ -642,6 +643,7 @@ if __name__ == "__main__":
     
     board = Board.blank()
     board_stack = [ ]
+    start_time = time.time()
 
     try:
         done = False    
@@ -672,9 +674,14 @@ if __name__ == "__main__":
                 break
 
             if done:
-                print( f"\n*** {Fore.GREEN}{Style.BRIGHT}SOLVED!{Style.RESET_ALL}" )
+                end_time = time.time()
+                solve_secs = end_time - start_time
+                print( f"\n*** {Fore.GREEN}{Style.BRIGHT}SOLVED!{Style.RESET_ALL} - {solve_secs:0.2f}s" )
                 if config.outfile:
-                    print( f"\n--- SOLVED!", file=config.outfile )
+                    print( f"\n--- SOLVED! - {solve_secs:.2f}s", file=config.outfile )
+                if args.quiet:          # doesn't get printed otherwise
+                    lines = board.printable( console=True )
+                    print( "\n".join( lines ) )
                 
             if not done and not changed:
                 board.output()
