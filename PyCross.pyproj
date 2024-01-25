@@ -35,7 +35,7 @@
     <Content Include="anchor.nono" />
     <Content Include="bow_arrow.nono" />
     <Content Include="bananas.nono" />
-    <Content Include="new.nono" />
+    <Content Include="computer.nono" />
     <Content Include="spider.nono" />
     <Content Include="wolfcub.nono" />
   </ItemGroup>
