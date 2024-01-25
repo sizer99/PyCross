@@ -7,14 +7,14 @@
     <StartupFile>PyCross.py</StartupFile>
     <SearchPath>
     </SearchPath>
-    <WorkingDirectory>C:\ron\PycrossSolver\PyCross\</WorkingDirectory>
+    <WorkingDirectory>C:\ron\PyCross\</WorkingDirectory>
     <OutputPath>.</OutputPath>
     <Name>PyCross</Name>
     <RootNamespace>PyCross</RootNamespace>
     <IsWindowsApplication>False</IsWindowsApplication>
-    <InterpreterId>Global|VisualStudio|WinStore Python 3.12</InterpreterId>
+    <InterpreterId>Global|PythonCore|3.12</InterpreterId>
     <LaunchProvider>Standard Python launcher</LaunchProvider>
-    <CommandLineArguments>C:\ron\PycrossSolver\PyCross\anchor.nono</CommandLineArguments>
+    <CommandLineArguments>C:\ron\PyCross\new.nono -vvvvvv -o c:\ron\Pycross\new.solv --force --seed=42</CommandLineArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -26,10 +26,18 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Config.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="PyCross.py" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="anchor.nono" />
+    <Content Include="bow_arrow.nono" />
+    <Content Include="bananas.nono" />
+    <Content Include="new.nono" />
+    <Content Include="spider.nono" />
+    <Content Include="wolfcub.nono" />
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="Global|PythonCore|3.12" />
