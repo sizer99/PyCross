@@ -42,7 +42,9 @@ def read_config_file( args: argparse.Namespace ):
         sys.exit( 1 )
     
     state :ParseState = ParseState.SIZE
+    line_no = 0
     for line in lines:
+        line_no += 1
         # print( state, line )        
 
         # skip comments
@@ -58,10 +60,10 @@ def read_config_file( args: argparse.Namespace ):
                 try:
                     rown, coln = int( rc[0] ), int( rc[1] )
                 except Exception as ex:    # probably ValueError
-                    print( f"Line '{line}':  expected '[rows]x[cols]' like '10x10'", file = sys.stderr )
+                    print( f"Line {line_no}: '{line}':  expected '[rows]x[cols]' like '10x10'", file = sys.stderr )
                     sys.exit( 2 )
                 if rown < 1 or coln < 1:
-                    print( f"Line '{line}':  [rows]x[cols] must be positive non-zero!", file = sys.stderr )
+                    print( f"Line {line_no}: '{line}':  [rows]x[cols] must be positive non-zero!", file = sys.stderr )
                     sys.exit( 2 )
                 # print( f"{coln} x {rown}")
                 config          = Config( rown, coln )
@@ -73,7 +75,7 @@ def read_config_file( args: argparse.Namespace ):
                     continue
                 uline = line.upper()
                 if uline != "ROWS:":
-                    print( f"Line '{line}':  expected 'Rows:' header", file = sys.stderr )
+                    print( f"Line {line_no}: '{line}':  expected 'Rows:' header", file = sys.stderr )
                     sys.exit( 2 )
                 state       = ParseState.ROWS
                 idx :int    = 0
@@ -87,14 +89,14 @@ def read_config_file( args: argparse.Namespace ):
                         for s in split:
                             n = int( s )
                             if n < 1:
-                                print( f"Line '{line}': each Rows entry must be positive non-zero integer!", file = sys.stderr )
+                                print( f"Line {line_no}: '{line}': each Rows entry must be positive non-zero integer!", file = sys.stderr )
                                 sys.exit( 2 )
                             r.append( n )
                             width += 2   # the number and a space
                             if n > 9:
                                 width += 1
                     except Exception as ex:
-                        print( f"Line '{line}': each Rows entry must be positive non-zero integer!", file = sys.stderr )
+                        print( f"Line {line_no}: '{line}': each Rows entry must be positive non-zero integer!", file = sys.stderr )
                         sys.exit( 2 )
                 if width > config.row_hdr_width:
                     config.row_hdr_width = width
@@ -107,7 +109,7 @@ def read_config_file( args: argparse.Namespace ):
                     continue
                 uline = line.upper()
                 if uline != "COLS:" and uline != "COLUMNS:":
-                    print( f"Line '{line}':  expected 'Cols:' or 'Columns:' header", file = sys.stderr )
+                    print( f"Line {line_no}: '{line}':  expected 'Cols:' or 'Columns:' header", file = sys.stderr )
                     sys.exit( 2 )
                 state = ParseState.COLS
                 idx   = 0
@@ -121,14 +123,14 @@ def read_config_file( args: argparse.Namespace ):
                         for s in split:
                             n = int( s )
                             if n < 1:
-                                print( f"Line '{line}': each Cols entry must be positive non-zero intenger!", file = sys.stderr )
+                                print( f"Line {line_no}: '{line}': each Cols entry must be positive non-zero intenger!", file = sys.stderr )
                                 sys.exit( 2 )
                             c.append( n )
                             height += 2         # number, then maybe space
                             if n > 9:
                                 height += 1     # need second digit
                     except Exception as ex:
-                        print( f"Line '{line}': each Cols entry must be positive non-zero intenger!", file = sys.stderr )
+                        print( f"Line {line_no}: '{line}': each Cols entry must be positive non-zero intenger!", file = sys.stderr )
                         sys.exit( 2 )
                 height -= 1   # one of them doesn't need a space
                 if height > config.col_hdr_height:
@@ -142,7 +144,7 @@ def read_config_file( args: argparse.Namespace ):
                     continue
                 uline = line.upper()
                 if uline != "DONE":
-                    print( f"Line '{line}': expected 'DONE'", file = sys.stderr )
+                    print( f"Line {line_no}: '{line}': expected 'DONE'", file = sys.stderr )
                     sys.exit( 2 )
         # end of match state
 
