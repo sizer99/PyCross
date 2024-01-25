@@ -219,7 +219,8 @@ class Board:
 
             # force this position
             if pos_count == force:
-                output( f"FORCING! {hints} {fill_pos} {slice[0:fill_pos[0]]}" )
+                if config.args.verbose >= VERBOSE_SOME:
+                    output( f"FORCING! {hints} {fill_pos} {slice[0:fill_pos[0]]}" )
                 changed = []
                 for x in range( len( hints ) ):
                     pos, size = fill_pos[x], hints[x]
@@ -439,12 +440,7 @@ class Board:
                 continue
             rowstr = f"Row {y+1:>2}"
             row = self.grid[y]    # get row y
-            try:
-                ( changed, valid_moves, done ) = self.solve_slice( row, config.rows[ y ], rowstr, -1 )
-            except SolveError as ex:
-                print( f"{Style.BRIGHT}{Fore.RED}* {Style.RESET_ALL} {rowstr} ( {config.rows[y]} ):" )
-                print( ex )
-                return ( False, False, True )
+            ( changed, valid_moves, done ) = self.solve_slice( row, config.rows[ y ], rowstr, -1 )
             self.row_moves[y]               = valid_moves
             if changed:
                 if config.args.verbose >= VERBOSE_MORE:
@@ -474,12 +470,7 @@ class Board:
                 continue
             colstr = f"Col {x+1:>2}"
             col = self.grid[:,x]    # get col x
-            #try:
             ( changed, valid_moves, done ) = self.solve_slice( col, config.cols[ x ], colstr, -1 )
-            #except SolveError as ex:
-            #print( f"{Style.BRIGHT}{Fore.RED}* {Style.RESET_ALL} {rowstr} {x+1} ( {config.cols[x]} ):" )
-            #    print( ex )
-            #   return ( False, False, True )
             self.col_moves[x] = valid_moves
             if changed:
                 if config.args.verbose >= VERBOSE_MORE: 
@@ -606,7 +597,7 @@ if __name__ == "__main__":
     parser.add_argument( "-o", "--out-file",    help = "also write output to specified file", dest="outfile", default = "" )
     parser.add_argument( "-q", "--quiet",       help = "don't even write output to console", dest="quiet", action = "store_true" )
     parser.add_argument( "-f", "--force",       help = "brute force solve if not enough info given", dest="force", action = "store_true" )
-    parser.add_argument( "--seed",              help = 'set random seed for --force', dest='seed', type = int )
+    parser.add_argument( "--seed",              help = 'set random seed for --force', dest='seed', type = int, default=42 )
     
     parser.add_argument( "--uc", "--unknown-char", help = 'a *single* character for unknown cells', dest='unknown_char', default='.' )
     parser.add_argument( "--fc", "--fill-char",    help = 'a *single* character for filled cells',  dest='fill_char', default='*' )

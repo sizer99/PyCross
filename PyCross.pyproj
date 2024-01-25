@@ -14,7 +14,7 @@
     <IsWindowsApplication>False</IsWindowsApplication>
     <InterpreterId>Global|PythonCore|3.12</InterpreterId>
     <LaunchProvider>Standard Python launcher</LaunchProvider>
-    <CommandLineArguments>C:\ron\PyCross\new.nono -vvvvvv -o c:\ron\Pycross\new.solv --force --seed=42</CommandLineArguments>
+    <CommandLineArguments>cash_register.nono -vvvvvv -o cash_register.solve --force --seed=9999</CommandLineArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -30,14 +30,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="PyCross.py" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="anchor.nono" />
-    <Content Include="bow_arrow.nono" />
-    <Content Include="bananas.nono" />
-    <Content Include="computer.nono" />
-    <Content Include="spider.nono" />
-    <Content Include="wolfcub.nono" />
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="Global|PythonCore|3.12" />
