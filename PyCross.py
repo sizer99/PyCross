@@ -667,13 +667,10 @@ if __name__ == "__main__":
                     print( f"* {ex}", file=config.outfile )
                 if args.force:
                     if board_stack:
-                        #  NOTE: We used to pop back to the previous board, but really the first random move was
-                        #        probably wrong, so best to just revert to the first known good position.
-                        #        For now leave the stack in so I can change my mind or experiment.
-                        #board = board_stack.pop()
-                        #output( f"    Reverting to previous board {board.step} depth {len(board_stack)}" )
-                        board = board_stack[0]
-                        board_stack.clear()
+                        board = board_stack.pop()
+                        #board = board_stack[0]
+                        #board_stack.clear()
+                        output( f"    Reverting to previous board {board.step} depth {len(board_stack)}" )
                     else:
                         output( "* Out of board stack?  Failing.")
                 else: 
