@@ -20,11 +20,21 @@ Copyright 2024 Ron Dippold
   brute force 30x3- picross in less than a second on a 4 year old CPU in --quiet
   mode. Most of the time spent is just printing the output.
 
+-= Requirements =-
+
+Python 3 - probably 3.9+ will work.  Tested on 3.11 and 3.12.
+
+Python modules needed: colorama and numpy
+    'pip install colorama numpy'     or 
+    'apt install python-colorama python-numpy'
+
+
 -= Input File Format =-
 
 Do a 'pycross.py -H' (uppercase H) or look at any of the .solv files to see
 the file format.  The 'Done' at the end is to make sure you entered the
 correct number of column line info.
+
 
 -= Usage =-
 
