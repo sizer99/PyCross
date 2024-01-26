@@ -21,8 +21,13 @@ import time
 import traceback
 
 # import installed packages
-from   colorama import Fore, Back, Style
-import numpy
+try:
+    from   colorama import Fore, Back, Style
+    import numpy
+except Exception as ex:
+    print( "*** You need colorama and numpy installed for this." )
+    print( "   pip install colorama numpy" )
+    sys.exit(10)
 
 # import my packages
 from   Config import Config, read_config_file
@@ -96,7 +101,7 @@ class Board:
         return board
 
     #
-    # return printable copy
+    # return/output printable copy
     #
 
     # all these are set by set_output_chars()
@@ -115,6 +120,12 @@ class Board:
         Board.cell_strs_ansi      = [ Board.UNKNOWN_STR_ANSI, Board.FILLED_STR_ANSI, Board.BLANK_STR_ANSI ]
 
     def printable( self, console:bool ) -> list[str]:
+        """ 
+        Return printable copy of the board.
+        Normally just use self.output() instead - it prints to console and file as needed.
+        """
+        
+
         lines = []
         # just add the column headers - easy
         lines += config.col_hdrs
@@ -148,20 +159,26 @@ class Board:
         if config.outfile:
             lines = board.printable( console=False )
             config.outfile.write( "\n".join( lines ) )
+            
+
+    #
+    # Board solving
+    #
     
     def recursive_solve( self, slice :numpy.array, hints :list[int], rowcol :str, available :int, left: int, right: int, force :int ) -> ( list[int], int ):
         """
         This runs through all given options for a slice, then looks at
              where things overlapped. May modify slice directly.
-        Not technically recursive, just looks at every possible position.
+        Not technically recursive since get_all_positions is a generator,
+            just looks at every possible position.
         
-        Don't call directly in most cases, called by solve_slice() with same parms.
-          available = right - left width available width, ignoring BLANKs on edges
-          left, right = outer non-BLANK position (where we have to start worrying)
-          force = If >= 0 force that possible move
+        Don't call this directly in most cases, called by solve_slice() with same parms.
+          left, right:  outermost non-BLANK position (where we have to start worrying)
+          available = right - left : available width, ignoring BLANKs on edges
+          force: If >= 0 force that possible move in --foprce mode
           
-        Returns ( changed_cell_indexes[], possible moves )
-           possible moves is invalid if force was >= 0
+        Returns ( changed_cell_indexes[], possible_moves )
+           possible_moves is invalid if force was >= 0 because we stopped at that combination
         """
         
         #
@@ -182,14 +199,14 @@ class Board:
         #    and 10 - 4 = 6 which is way longer than 1 or 2, so not worth it.
         # If the slice is 10 long and the hints are '1 2 3' then hints_width is 8,
         #    10 - 8 = 2, so it's worth it because we'll get overlap on the 3.
-        if not slice.any():
+        if not slice.any():  # all UNKNOWN
             hints_width = sum( hints ) + len( hints ) - 1  # sum(n) + (n-1) spaces
             hints_max = max( hints )
             if ( available - hints_width ) >= hints_max:
                 return ( [], 99 )  # 99 = lots of possible moves
             
 
-        # count how many FILLS and BLANKS we have at each cell. Don't bother with UNKNOWN.
+        # count how many FILLED we have at each cell for every combination
         fill_count  = numpy.zeros( len(slice), dtype=numpy.uint32 )
 
         # Iterate over the possible positions
@@ -199,9 +216,8 @@ class Board:
             if config.args.verbose >= VERBOSE_MORE:
                 output(  f"  Step {self.step:>4} - {rowcol} - {left} {right} {hints} -  {pos_count} {fill_pos}")
            
-            # Check if this is possible
-
-            # iterate through each block
+            # Check if this position is possible
+            #    iterate through each block and see if it's not illegal
             okay = True
             end  = 0
             for x in range( len(hints) ):
@@ -218,7 +234,9 @@ class Board:
             if end < right and numpy.any( slice[end:] == self.FILLED ):     # can't have any filled ones after we put all ours down
                 continue
 
-            # force this position
+            #
+            # force this position if requested
+            #
             if pos_count == force:
                 if config.args.verbose >= VERBOSE_SOME:
                     output( f"FORCING! {hints} {fill_pos} {slice[0:fill_pos[0]]}" )
@@ -237,10 +255,10 @@ class Board:
                 return ( changed, pos_count )           # pos_count is invalid
                 
 
-            # count the number of possible positions we got
+            # count the number of legal positions
             pos_count += 1
 
-            # looks good, mark them in fill_count
+            # mark the filled cells in fill_count
             for x in range( len(hints ) ):
                 pos, size = fill_pos[x], hints[x]
                 end  = pos + size                   # one PAST the end
@@ -249,12 +267,12 @@ class Board:
                     
             if config.args.verbose >= VERBOSE_ALL:
                 output( f"       {pos_count}  fill: {fill_count}")
-               
 
         if pos_count == 0:
             raise SolveError( f"* Step {self.step:>4} {rowcol} - hints ({hints}) - no possible solutions!" )
 
-        # Now look for any previously UNKNOWN cell and see if they were always BLANK or FILLED
+        # Now look for any previously UNKNOWN cells and see if they were always 
+        #     BLANK or FILLED in our simulation
         changed = []
         for x in range( len( slice ) ):
             if slice[x] == self.UNKNOWN:
@@ -271,7 +289,7 @@ class Board:
     def get_all_positions( left :int, right :int, hints :list[int] ) ->  list[int]:
         """
         Given a starting max left, a starting max right, and the hints, generate all possible
-        fill positions.
+            fill positions.
         """
         # Figure out the (inclusive) left possible pos for each hint
         left2 = left                        # if left is 0 and hints is [ 1, 2, 3],
@@ -308,15 +326,13 @@ class Board:
                     hints_pos[idx+1] = hints_pos[idx] + hints[idx] + 1  # next possible starting position
                     idx += 1
             yield hints_pos
-                
             
 
     def solve_slice( self, slice :numpy.array, hints :list[int], rowcol :str, force :int ) -> ( list[int], int, bool ):
         """
         Try to knock out items in a row or column, we don't care which one. 
-        Except for debugging - rowcol is set to 'Row n' or 'Col n' for that purpose.
         
-        Caller has already checked if row_done or col_done to see if we don't need to solve this.
+        Caller has already checked if row_done or col_done to see if we don't need to check this.
         
         If force >= 0 brute force that solution
         
@@ -505,17 +521,6 @@ class Board:
         Picks one with few moves and makes a random move.
         """
 
-
-        # debug!
-        # which = 13
-        # weight = 2
-        # output( f"-  Forcing Col {which:>2} move {weight}" )
-        # col = self.grid[:,which]
-        # ( changed_idx, dummy, done ) = self.solve_slice( col, config.cols[which], f"Col {which:>2}", weight )
-        # self.grid[:,which] = col
-        # self.output()
-        # sys.exit(1)
-        
         # weight every row and column on the number of moves available (fewer is more weight)
         total = 0
         choices = []
@@ -532,7 +537,7 @@ class Board:
                 total += weight
         choices.sort( reverse=True )
         
-        # generate a random number and see where that is in all the choices
+        # generate a random number and see where that lands in all the choices
         r = random.randrange( 0, total )
         if config.args.verbose >= VERBOSE_MORE:
             output( f" {r} of {total} in {choices}" )
@@ -551,7 +556,7 @@ class Board:
                 output( f"-  Forcing Row {which:>2} move {move}" )
                 ( changed_idx, dummy, done ) = self.solve_slice( row, config.rows[which], f"Row {which:>2}", move )
                 self.grid[which] = row
-            else:
+            else: # a col
                 which -= 1000
                 col = self.grid[ :, which]
                 # get the exact number of moves possible right now
@@ -662,8 +667,13 @@ if __name__ == "__main__":
                     print( f"* {ex}", file=config.outfile )
                 if args.force:
                     if board_stack:
-                        board = board_stack.pop()
-                        output( f"    Reverting to previous board {board.step} depth {len(board_stack)}" )
+                        #  NOTE: We used to pop back to the previous board, but really the first random move was
+                        #        probably wrong, so best to just revert to the first known good position.
+                        #        For now leave the stack in so I can change my mind or experiment.
+                        #board = board_stack.pop()
+                        #output( f"    Reverting to previous board {board.step} depth {len(board_stack)}" )
+                        board = board_stack[0]
+                        board_stack.clear()
                     else:
                         output( "* Out of board stack?  Failing.")
                 else: 
@@ -710,3 +720,4 @@ if __name__ == "__main__":
     except Exception as ex:
         output( "* Fatal Error" )
         output( traceback.format_exc() )
+        board.output()

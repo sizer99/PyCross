@@ -1,0 +1,50 @@
+# unsolvable?!? from https://www.reddit.com/r/Picross/comments/lhco42/unsolvable_right/
+# Yes, this is unsolvable with purely rule based methods, turn on --force to solve it.
+
+20 x 20
+
+Rows:
+0
+0
+0
+12
+3 3 3
+2 2 5 2
+1 1 2 2 1
+2 2 7 2
+1 1 2 2 1
+1 1 3 1 1 3 1
+1 1 1 1 1
+1 1 1 1 1 1 1
+1 1 1 5 1 1
+2 2 1 1 2
+1 1 5 1
+2 2 2
+3 3 3
+12
+0
+0
+
+Cols:
+7
+3 3
+2 2 
+1 1
+2 2 
+1 7 1
+1 3 3 1
+3 1 3
+2 5 2
+2 4 1 2
+1 3 2 1 1
+1 1 1 1 1 1 1
+1 1 1 1 1 1
+1 1 1 1 1 1 1
+1 3 2 1 1
+2 4 1 2
+1 5 1
+2 1 2
+3 3
+7
+
+Done
