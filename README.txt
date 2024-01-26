@@ -17,8 +17,8 @@ Copyright 2024 Ron Dippold
   everything I've hit it with so far.
 
   This has some heuristics to speed things up - it can solve a very cantankerous
-  brute force 20x20 picross in half a second on a 4 year old CPU in --quiet
-  mode. Otherwise most of the time spent is just printing the output.
+  brute force 30x3- picross in less than a second on a 4 year old CPU in --quiet
+  mode. Most of the time spent is just printing the output.
 
 -= Input File Format =-
 
