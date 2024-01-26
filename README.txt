@@ -47,3 +47,33 @@ If you then use
 you'll get the answer!
 
 
+--------
+
+So after doing this I think it's kind of interesting to compare the algorithms this uses to the algorithms we use.
+
+My algorithms when I'm just a meatsack doing a puzzle (I say left and right here for rows, sub top and bottom for columns):
+
+-    If the hints are zero, everything's blank, obviously
+
+-    If the total hint space ( 1 2 3 = 8 spaces) adds up to the unsolved space between the left and right blanks then just fill it in. The simplest form of this is where you have 20x20 and the hint is 20. But 15 4 is also full. Or if the right two columns are blank, then 14 3 fills the row.
+
+-    If you have a filled space near a left or right edge, then you can extend filled spaces that far beyond it. For instance, if you have 5 2 3 as the hints, and you have a filled space in the third column, then you can fill in the 4th and 5th columns, because they must be filled.
+
+-    Similarly if your hints are 5 3 4 and you have the 5 filled, then there's an unknown and a blank and a fill, then that fill must be the start of the 3. Or if you have 5 5 5 and the first 5 is completed, then you have unknown, unknown, filled, then the next two cells must be filled.
+
+On the other hand, when I'm doing the it programatically, my only logic is:
+
+-    If the hints are zero, everything's blank. (this is a speedup, could be skipped)
+
+-    If the hints fill the unsolved space, then put them in, we're done. (this is a speedup, could be skipped)
+
+-    If there's no possibility of a hint producing a filled cell, shortcut. For instance, in a 10 wide grid, take 1 2 as hints. The total width is 3 + 1 = 4, 10 - 2 = 8, there's no possibility there's anything useful from trying this line, so just skip it. On the other hand if you have 1 2 3 as hints, then the total width is 6 + 2 = 8. 10 - 8 = 2. There's going to be a fixed cell for 3, so evaluate it. (this is a speedup, could be skipped)
+
+-    Otherwise, try every single combination of positions for the hints. If they fail (like trying to put a filled space over a blank space) then fail and do the next combo. Keep count of the number of filled spaces for each cell.
+
+	- Once done with every single combo, if the number of filled spaces in a cell is zero then this must be a blank cell.
+
+	- Similarly, if the number of filled spaces in a cell is equal to the number of legit positions, then this space must be filled.
+
+    - This is the only step that is strictly necessary. All the others are just speedups.
+	
