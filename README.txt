@@ -20,6 +20,7 @@ Copyright 2024 Ron Dippold
   brute force 30x3- picross in less than a second on a 4 year old CPU in --quiet
   mode. Most of the time spent is just printing the output.
 
+
 -= Requirements =-
 
 Python 3 - probably 3.9+ will work.  Tested on 3.11 and 3.12.
@@ -55,6 +56,18 @@ which will fail with
 If you then use
    pycross.py cash_register.nono --force
 you'll get the answer!
+
+
+-= Releases =-
+2024 Jan 25 1.00
+	Initial Release
+2024 Jan 26 1.01
+	When doing --force, we could force a move that was illegal for the rows/cols the slice crossed,
+	and since we had nothing checking legality overall, this would leave the board in an illegal
+	state but 'done'.  Now we check when forcing a move, and check board legality after every step.
+	Slows things down, but it's plenty fast anyhow.
+	
+
 
 
 --------

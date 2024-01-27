@@ -1,4 +1,3 @@
-
 #!python
 # ----------------------------------------------------------------------------
 # Simple Picross Solver
@@ -10,7 +9,7 @@
 # Copyright 2024 Ron Dippold
 # ----------------------------------------------------------------------------
 
-VERSION = 1.00
+VERSION = 1.01
 
 # import standard libs
 import argparse
@@ -101,6 +100,66 @@ class Board:
         return board
 
     #
+    # Class methods
+    # 
+    def get_all_positions( left :int, right :int, hints :list[int] ) ->  list[int]:
+        """
+        Given a starting max left, a starting max right, and the hints, generate all possible
+            fill positions.
+        """
+        # Figure out the (inclusive) left possible pos for each hint
+        left2 = left                        # if left is 0 and hints is [ 1, 2, 3],
+        hints_pos = [ ]                     #   hints_pos is [ 0, 2, 5 ]
+        for h in hints:                     #  * _ * * _ * * * _ .
+            hints_pos.append( left2 )
+            left2 += h + 1  # for the BLANK
+            
+        # figure out the (inclusive) right possible pos for each hint
+        right2 = right + 1                  # If right is 10 and hints is [ 1, 2, 3 ]
+        hints_right_pos = []                #    hints_right_pos is [ 2, 4, 7 ]
+        for h in reversed( hints ):         # . _ * _ * * _ * * *
+            right2 -= h
+            hints_right_pos.append( right2 )
+            right2 -= 1  # for the BLANK
+        hints_right_pos.reverse()
+        
+        # Start out in the left pos
+        ridx            = len( hints ) - 1  # index of last hint
+        idx             = ridx
+        hints_pos[-1]  -= 1                 # move the last one left one so we can increment it at the start
+        
+        # print( f"Left: {left} Right: {right} Hints: {hints} Max: {hints_right_pos}")
+        
+        while True:
+            hints_pos[idx] += 1             # move current index right
+            if hints_pos[idx] > hints_right_pos[idx]:
+                if idx == 0:                # We can't move the left hint any further right, stop
+                    return
+                idx -= 1
+                continue
+            if idx < ridx:                  # not on last hint?
+                while idx < ridx:           # move the next indexes to their next possible positions
+                    hints_pos[idx+1] = hints_pos[idx] + hints[idx] + 1  # next possible starting position
+                    idx += 1
+            yield hints_pos
+            
+    def get_slice_left_right_available( slice: numpy.array ) -> ( int, int, int ):
+        """
+        Count from the edges till we find a non-forced blank cell.
+        Blank cells at the edge are basically forbidden territory, we can 'ignore' them.
+        Returns (left, right, available)
+        """
+        full_width = len(slice)        
+
+        left, right  = 0, full_width - 1
+        while( left < full_width and slice[left] == Board.BLANK ):
+            left += 1
+        while( right > left and slice[right] == Board.BLANK ):
+            right -= 1
+        available = right - left + 1
+        return( left, right, available )
+
+    #
     # return/output printable copy
     #
 
@@ -122,7 +181,7 @@ class Board:
     def printable( self, console:bool ) -> list[str]:
         """ 
         Return printable copy of the board.
-        Normally just use self.output() instead - it prints to console and file as needed.
+        Normally just use self.output_grid() instead - it prints to console and file as needed.
         """
         
 
@@ -152,7 +211,7 @@ class Board:
         lines.append( "" )    # and a blank
         return lines
 
-    def output( self ) -> None:
+    def output_grid( self ) -> None:
         if not config.args.quiet:
             lines = board.printable( console=True )
             print( "\n".join( lines ) )
@@ -222,16 +281,16 @@ class Board:
             end  = 0
             for x in range( len(hints) ):
                 pos, size = fill_pos[x], hints[x]
-                if pos > end and numpy.any( slice[end:pos] == self.FILLED ): # can't have any FILLED in before this
+                if pos > end and numpy.any( slice[end:pos] == Board.FILLED ): # can't have any FILLED in before this
                     okay = False
                     break
                 end  = pos + size  # one PAST the end
-                if numpy.any( slice[pos:end] == self.BLANK ):   # can't be on top of any be blank areas
+                if numpy.any( slice[pos:end] == Board.BLANK ):   # can't be on top of any be blank areas
                     okay = False
                     break
             if not okay:
                 continue
-            if end < right and numpy.any( slice[end:] == self.FILLED ):     # can't have any filled ones after we put all ours down
+            if end < right and numpy.any( slice[end:] == Board.FILLED ):     # can't have any filled ones after we put all ours down
                 continue
 
             #
@@ -245,12 +304,12 @@ class Board:
                     pos, size = fill_pos[x], hints[x]
                     end  = pos + size                   # one PAST the end
                     for x in range( pos, end ):
-                        if slice[x] == self.UNKNOWN:
-                            slice[x] = self.FILLED
+                        if slice[x] == Board.UNKNOWN:
+                            slice[x] = Board.FILLED
                             changed.append(x)
                 for x in range( left, right ):
-                    if slice[x] == self.UNKNOWN:
-                        slice[x] = self.BLANK
+                    if slice[x] == Board.UNKNOWN:
+                        slice[x] = Board.BLANK
                         changed.append(x)
                 return ( changed, pos_count )           # pos_count is invalid
                 
@@ -275,58 +334,16 @@ class Board:
         #     BLANK or FILLED in our simulation
         changed = []
         for x in range( len( slice ) ):
-            if slice[x] == self.UNKNOWN:
+            if slice[x] == Board.UNKNOWN:
                 if fill_count[x] == pos_count:
-                    slice[x] = self.FILLED
+                    slice[x] = Board.FILLED
                     changed.append(x)
                 elif fill_count[x] == 0:
-                    slice[x] = self.BLANK
+                    slice[x] = Board.BLANK
                     changed.append(x)
             
         return ( changed, pos_count )
 
-
-    def get_all_positions( left :int, right :int, hints :list[int] ) ->  list[int]:
-        """
-        Given a starting max left, a starting max right, and the hints, generate all possible
-            fill positions.
-        """
-        # Figure out the (inclusive) left possible pos for each hint
-        left2 = left                        # if left is 0 and hints is [ 1, 2, 3],
-        hints_pos = [ ]                     #   hints_pos is [ 0, 2, 5 ]
-        for h in hints:                     #  * _ * * _ * * * _ .
-            hints_pos.append( left2 )
-            left2 += h + 1  # for the BLANK
-            
-        # figure out the (inclusive) right possible pos for each hint
-        right2 = right + 1                  # If right is 10 and hints is [ 1, 2, 3 ]
-        hints_right_pos = []                #    hints_right_pos is [ 2, 4, 7 ]
-        for h in reversed( hints ):         # . _ * _ * * _ * * *
-            right2 -= h
-            hints_right_pos.append( right2 )
-            right2 -= 1  # for the BLANK
-        hints_right_pos.reverse()
-        
-        # Start out in the left pos
-        ridx            = len( hints ) - 1  # index of last hint
-        idx             = ridx
-        hints_pos[-1]  -= 1                 # move the last one left one so we can increment it at the start
-        
-        # print( f"Left: {left} Right: {right} Hints: {hints} Max: {hints_right_pos}")
-        
-        while True:
-            hints_pos[idx] += 1             # move current index right
-            if hints_pos[idx] > hints_right_pos[idx]:
-                if idx == 0:                # We can't move the left hint any further right, stop
-                    return
-                idx -= 1
-                continue
-            if idx < ridx:                  # not on last hint?
-                while idx < ridx:           # move the next indexes to their next possible positions
-                    hints_pos[idx+1] = hints_pos[idx] + hints[idx] + 1  # next possible starting position
-                    idx += 1
-            yield hints_pos
-            
 
     def solve_slice( self, slice :numpy.array, hints :list[int], rowcol :str, force :int ) -> ( list[int], int, bool ):
         """
@@ -345,7 +362,7 @@ class Board:
         # rule 'zero' - 0 length means we're done
         #
         if not hints:
-            slice.fill( self.BLANK )
+            slice.fill( Board.BLANK )
             if config.args.verbose >= VERBOSE_SOME:
                 output(  f"- Step {self.step:>4} {rowcol} - 0 length fill BLANK" )
             # this only triggers on the first time, so just assume every cell changed
@@ -353,28 +370,16 @@ class Board:
         # rule 'one' - 1 hint, full width - trivial
         #
         if len(hints) == 1 and hints[0] == full_width:
-            slice.fill( self.FILLED )
+            slice.fill( Board.FILLED )
             if config.args.verbose >= VERBOSE_SOME:
                 output(  f"- Step {self.step:>4} {rowcol} - {hints} FILLED" )
             # this only triggers on the first time, so just assume every cell changed
             return ( [ x for x in range(full_width) ], 0, True )
         
-        #
-        # rule full - hints just fit
-        #
-        # count from the edges till we find a non forced blank cell
-        # also gets us, left, right, available which we need for other calcs
-        #
-        left, right  = 0, full_width - 1
-        while( left < full_width and slice[left] == self.BLANK ):
-            left += 1
-        while( right > left and slice[right] == self.BLANK ):
-            right -= 1
-        available = right - left + 1
+        left, right, available = Board.get_slice_left_right_available( slice )
         if available == 0:  # should not get here, but handle it as a done row
             return( [], 0, True )
         
-
         hints_total = sum( hints ) + len( hints ) - 1
         if hints_total > available:
             # print( f"Hints ({hints_len}) are larger than available space ({available})" )
@@ -385,15 +390,15 @@ class Board:
                 output(  f"- Step {self.step:>4} {rowcol} - {hints} fills it perfectly" )
             for hint in hints:
                 # set the FILLED section
-                # slice[left:left+hint] = self.FILLED    # can't get changes this way
+                # slice[left:left+hint] = Board.FILLED    # can't get changes this way
                 for x in range( left, left+hint ):
-                    if slice[x] != self.FILLED:
-                        slice[x] = self.FILLED
+                    if slice[x] != Board.FILLED:
+                        slice[x] = Board.FILLED
                         changed.append( x )
                 left += hint
                 if left < full_width:    # Add a blank if we're not at end
-                    if slice[left] != self.BLANK:
-                        slice[left] = self.BLANK
+                    if slice[left] != Board.BLANK:
+                        slice[left] = Board.BLANK
                         changed.append( left )
                     left += 1
             return ( changed, 0, True )
@@ -409,7 +414,7 @@ class Board:
         found = []
         for x in range( full_width ):
             if not fills:               # we were not in filled area, look for one
-                if slice[x] == self.FILLED:
+                if slice[x] == Board.FILLED:
                     fills = True
                     found.append(1)     # 1 block fill so far
                     idx += 1
@@ -417,7 +422,7 @@ class Board:
                         raise SolveError( f"* Step {self.step:>4} {rowcol} - {slice} exceeds {hints}" )
                     continue
             else:                       # we were in a filled area, look for non-filled
-                if slice[x] == self.FILLED: # continuing filled
+                if slice[x] == Board.FILLED: # continuing filled
                     found[idx] += 1
                 else:
                     fills = False
@@ -429,13 +434,13 @@ class Board:
             if config.args.verbose >= VERBOSE_SOME:
                 output(  f"- Step {self.step:>4} - {rowcol} - done" )
             for x in range( full_width ):
-                if slice[x] == self.UNKNOWN:
-                    slice[x] = self.BLANK
+                if slice[x] == Board.UNKNOWN:
+                    slice[x] = Board.BLANK
                     changed_idxs.append( x )
             return ( changed_idxs, valid_moves, True )
         
         return( changed_idxs, valid_moves, False )
-            
+           
 
     def solve_next( self ) -> ( bool, bool, bool ):
         """
@@ -461,7 +466,7 @@ class Board:
             self.row_moves[y]               = valid_moves
             if changed:
                 if config.args.verbose >= VERBOSE_MORE:
-                    self.output()
+                    self.output_grid()
                     
                 changes                     = True
                 self.grid[y]                = row
@@ -472,7 +477,7 @@ class Board:
                 self.row_solved[y]          = True
                 rows_done += 1
             else:
-                if not numpy.any( row == self.UNKNOWN ):
+                if not numpy.any( row == Board.UNKNOWN ):
                     if config.args.verbose >= VERBOSE_SOME:
                         output( f"- Step {self.step:>4} - {rowstr} - no unknowns, marking done" )
                     self.row_solved[y]      = True
@@ -491,7 +496,7 @@ class Board:
             self.col_moves[x] = valid_moves
             if changed:
                 if config.args.verbose >= VERBOSE_MORE: 
-                    self.output()
+                    self.output_grid()
                 changes                     = True
                 self.grid[:,x]              = col
                 self.col_changed[x]         = True
@@ -501,7 +506,7 @@ class Board:
                 self.col_solved[x]          = True
                 cols_done += 1
             else:
-                if not numpy.any( col == self.UNKNOWN ):
+                if not numpy.any( col == Board.UNKNOWN ):
                     if config.args.verbose >= VERBOSE_SOME:
                         output( f"- Step {self.step:>4} - {colstr} - no unknowns, marking done" )
                     self.col_solved[x]      = True
@@ -509,7 +514,7 @@ class Board:
         
 
         if config.args.verbose >= VERBOSE_ALL:
-            output( f" rows_done {self.row_solved}   cols_done {self.col_solved}")
+            output( f" rows_done {self.row_solved}   cols_done {self.col_solved}" )
 
         done = ( rows_done == config.rown ) and ( cols_done == config.coln )
         return ( changes, done, False )
@@ -537,38 +542,133 @@ class Board:
                 total += weight
         choices.sort( reverse=True )
         
-        # generate a random number and see where that lands in all the choices
-        r = random.randrange( 0, total )
-        if config.args.verbose >= VERBOSE_MORE:
-            output( f" {r} of {total} in {choices}" )
-        for ( weight, which ) in choices:
-            if r > weight:
-                r -= weight
+        # might have to do this a couple times to get a legal one
+        tried = set()
+        while True:
+        
+            # generate a random number and see where that lands in all the choices
+            r = random.randrange( 0, total )
+            if r in tried:      # tried this before - TODO: check for too many repeats
                 continue
-            # found it!
-            weight = max_choices - weight
-            if which < 1000:  # a row
-                row = self.grid[which]
-                # get the exact number of moves possible right now
-                ( changed_idx, moves, done ) = self.solve_slice( row, config.rows[which], f"Row {which:>2}", weight )
-                # and choose a random one
-                move = random.randrange( 0, moves )
-                output( f"-  Forcing Row {which:>2} move {move}" )
-                ( changed_idx, dummy, done ) = self.solve_slice( row, config.rows[which], f"Row {which:>2}", move )
-                self.grid[which] = row
-            else: # a col
-                which -= 1000
-                col = self.grid[ :, which]
-                # get the exact number of moves possible right now
-                ( changed_idx, moves, done ) = self.solve_slice( col, config.cols[which], f"Col {which:>2}", weight )
-                # and choose a random one
-                move = random.randrange( 0, moves )
-                output( f"-  Forcing Col {which:>2} move {move}" )
-                ( changed_idx, dummy, done ) = self.solve_slice( col, config.cols[which], f"Col {which:>2}", move )
-                self.grid[ :, which ] = col
-            if done:
-                self.row_solved[which] = True
-            break
+            tried.add( r )
+            
+            if config.args.verbose >= VERBOSE_MORE:
+                output( f" {r} of {total} in {choices}" )
+            for ( weight, which ) in choices:
+                if r > weight:
+                    r -= weight
+                    continue
+                # found it!
+                weight = max_choices - weight
+                orig_grid = self.grid.copy()    # make a copy of the grid, because we might force something bad
+                if which < 1000:  # a row
+                    row = self.grid[which]
+                    rowcol = f"Row {which:>2}"
+                    # get the exact number of moves possible right now
+                    ( changed_idx, moves, done ) = self.solve_slice( row, config.rows[which], rowcol, weight )
+                    # and choose a random one
+                    move = random.randrange( 0, moves )
+                    if config.args.verbose >= VERBOSE_MORE:
+                        output( f"-  Forcing Row {which:>2} move {move}" )
+                    ( changed_idx, dummy, done ) = self.solve_slice( row, config.rows[which], rowcol, move )
+                    self.grid[which] = row
+                    # Check that we didn't do anything bad in the changed cols
+                    okay = True
+                    for idx in changed_idx:
+                        if not Board.slice_is_legal( self.grid[:,idx], config.cols[idx] ):
+                            if config.args.verbose >= VERBOSE_MORE:
+                                output( f"    Causes Col {idx:>2} to be illegal, reverting" )
+                            okay = False
+                            break
+                    if not okay:
+                        self.grid = orig_grid   # put it back
+                        continue
+                            
+                else: # a col
+                    which -= 1000
+                    col = self.grid[ :, which]
+                    rowcol = f"Col {which:>2}"
+
+                    # get the exact number of moves possible right now
+                    ( changed_idx, moves, done ) = self.solve_slice( col, config.cols[which], rowcol, weight )
+                    # and choose a random one
+                    move = random.randrange( 0, moves )
+                    output( f"-  Forcing Col {which:>2} move {move}" )
+                    ( changed_idx, dummy, done ) = self.solve_slice( col, config.cols[which], rowcol, move )
+                    self.grid[ :, which ] = col
+                    # Check that we didn't do anything bad in the changed rows
+                    okay = True
+                    for idx in changed_idx:
+                        if not Board.slice_is_legal( self.grid[idx], config.rows[idx] ):
+                            if config.args.verbose >= VERBOSE_MORE:
+                                output( f"    Causes Row {idx:>2} to be illegal, reverting" )
+                            okay = False
+                            break
+                    if not okay:
+                        self.grid = orig_grid   # put it back
+                        continue
+
+                if done:
+                    self.row_solved[which] = True
+                return
+    
+    def slice_is_legal( slice :numpy.array, hints :list[int] ) -> bool:
+        """
+        Looks at the hints to decide if what's in the slice is even legal.
+        """
+
+        # degenerate but fast case: no hints, nothing must be filled
+        if not hints:
+            ok = not numpy.any( slice == Board.FILLED )
+            if not ok:
+                print( f"{hints} {numpy.any( slice == board.FILLED) } {slice}")
+                sys.exit(1)
+            return ok
+
+        left, right, available = Board.get_slice_left_right_available( slice )
+        
+        # Iterate over the possible positions
+        # Iterate over the possible positions
+        for fill_pos in Board.get_all_positions( left, right, hints ):
+            okay = True
+            end  = 0
+            for x in range( len(hints) ):
+                pos, size = fill_pos[x], hints[x]
+                if pos > end and numpy.any( slice[end:pos] == Board.FILLED ): # can't have any FILLED in before this
+                    okay = False
+                    break
+                end  = pos + size  # one PAST the end
+                if numpy.any( slice[pos:end] == Board.BLANK ):   # can't be on top of any be blank areas
+                    okay = False
+                    break
+            if not okay:
+                continue
+            if end < right and numpy.any( slice[end:] == Board.FILLED ):     # can't have any filled ones after we put all ours down
+                continue
+            
+            # if we're here it's legal
+            return True
+        
+        return False        # didn't find a single legal one
+    
+
+    def check_all_legal( self ) -> None:
+        "Raises a SolveError if a Row or Col is illegal"
+    
+        for y in range(config.rown):
+            if config.rows[y]:
+                continue
+            row = self.grid[y]
+            if not Board.slice_is_legal( row, config.rows[y] ):
+                raise SolveError( f"Row {y:>2} illegal" )
+        
+        for x in range(config.coln):
+            if config.cols[x]:
+                continue
+            col = self.grid[:,x]
+            if not Board.slice_is_legal( col, config.cols[x] ):
+                raise SolveError( f"Col {x:>2} illegal" )
+       
             
 
 
@@ -598,8 +698,7 @@ if __name__ == "__main__":
     parser.add_argument( "infile",              help = "file that describes the nonogram" )
     parser.add_argument( "-H", "--filehelp",    help = "show expected infile format", dest="filehelp", action = "store_true" )
     parser.add_argument( "-v", "--verbose",     help = "be more verbose", dest="verbose", action="count", default=0 )
-    #parser.add_argument( "-l", "--lines",       help = "print lines between rows and columns", dest="lines", action = "store_true" )
-    parser.add_argument( "-p", "--per-line",    help = "how many solve steps to show per line", dest="perline", type = int, default = 1 )
+    #parser.add_argument( "-p", "--per-line",    help = "how many solve steps to show per line", dest="perline", type = int, default = 1 )
     parser.add_argument( "-o", "--out-file",    help = "also write output to specified file", dest="outfile", default = "" )
     parser.add_argument( "-q", "--quiet",       help = "don't even write output to console", dest="quiet", action = "store_true" )
     parser.add_argument( "-f", "--force",       help = "brute force solve if not enough info given", dest="force", action = "store_true" )
@@ -647,35 +746,36 @@ if __name__ == "__main__":
         print( f"\n* {args.infile} - {config.rown} rows x {config.coln} cols\n", file=config.outfile )
     
     board = Board.blank()
-    board_stack = [ ]
     start_time = time.time()
+    board_prev = None
 
     try:
         done = False    
         while True:
             # TODO: Combine lines for --per-line
 
-            board.output()
+            board.output_grid()
             if done:
                 break
 
             try:
                 ( changed, done, dead ) = board.solve_next()
+                board.check_all_legal()
             except SolveError as ex:
                 print( f"* {Fore.RED}{ex}{Style.RESET_ALL}" )
                 if config.outfile:
                     print( f"* {ex}", file=config.outfile )
                 if args.force:
-                    if board_stack:
-                        board = board_stack.pop()
-                        #board = board_stack[0]
-                        #board_stack.clear()
-                        output( f"    Reverting to previous board {board.step} depth {len(board_stack)}" )
+                    if board_prev:
+                        # We used to keep a stack and pop back, but it's likely as anything that the
+                        # first random forced move was wrong, so just go back to that
+                        output( f"    Reverting to previous board {board.step}" )
+                        board = board_prev.copy()
                     else:
-                        output( "* Out of board stack?  Failing.")
+                        output( "* No previous board? Failing!")
                 else: 
                     break
-
+                
             # print( changed, done, dead )
             if dead: 
                 break
@@ -691,14 +791,16 @@ if __name__ == "__main__":
                     print( "\n".join( lines ) )
                 
             if not done and not changed:
-                board.output()
+                board.output_grid()
                 print( f"{Fore.RED}{Style.BRIGHT}Unsolved, but couldn't find anything else to do.{Style.RESET_ALL}" )
                 if config.outfile:
                     print( f"* Unsolved, but couldn't find anything else to do.", file=config.outfile )
                 
                 if args.force:
-                    board_stack.append( board )
-                    output( f"- Switching to brute force depth {len(board_stack)}" )
+                    if not board_prev:
+                        board_prev = board.copy()
+                        output( "board_prev set!" )
+                    output( f"- Switching to brute force" )
                     while True:
                         board = board.copy()
                         try:
@@ -707,14 +809,15 @@ if __name__ == "__main__":
                         except SolveError as ex:
                             continue
                         except Exception as ex:
-                            print( "Nooooooooo!" )
+                            print( f"Nooooooooo! {ex}" )
                             sys.exit(1)
-                    board.output()
+                    board.output_grid()
                     continue
                 else:
                     output( "   use --force to switch to brute force methods" )
                 break
+            
     except Exception as ex:
         output( "* Fatal Error" )
         output( traceback.format_exc() )
-        board.output()
+        board.output_grid()
