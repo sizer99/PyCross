@@ -90,6 +90,7 @@ def read_config_file( args: argparse.Namespace ):
                             n = int( s )
                             if n < 1:
                                 print( f"Line {line_no}: '{line}': each Rows entry must be positive non-zero integer!", file = sys.stderr )
+                                print( f"     Are you missing a line?", file = sys.stderr )
                                 sys.exit( 2 )
                             r.append( n )
                             width += 2   # the number and a space
@@ -97,6 +98,7 @@ def read_config_file( args: argparse.Namespace ):
                                 width += 1
                     except Exception as ex:
                         print( f"Line {line_no}: '{line}': each Rows entry must be positive non-zero integer!", file = sys.stderr )
+                        print( f"     Are you missing a line?", file = sys.stderr )
                         sys.exit( 2 )
                 if width > config.row_hdr_width:
                     config.row_hdr_width = width
@@ -123,14 +125,16 @@ def read_config_file( args: argparse.Namespace ):
                         for s in split:
                             n = int( s )
                             if n < 1:
-                                print( f"Line {line_no}: '{line}': each Cols entry must be positive non-zero intenger!", file = sys.stderr )
+                                print( f"Line {line_no}: '{line}': each Cols entry must be positive non-zero integer!", file = sys.stderr )
+                                print( f"     Are you missing a line?", file = sys.stderr )
                                 sys.exit( 2 )
                             c.append( n )
                             height += 2         # number, then maybe space
                             if n > 9:
                                 height += 1     # need second digit
                     except Exception as ex:
-                        print( f"Line {line_no}: '{line}': each Cols entry must be positive non-zero intenger!", file = sys.stderr )
+                        print( f"Line {line_no}: '{line}': each Cols entry must be positive non-zero integer!", file = sys.stderr )
+                        print( f"     Are you missing a line?", file = sys.stderr )
                         sys.exit( 2 )
                 height -= 1   # one of them doesn't need a space
                 if height > config.col_hdr_height:
