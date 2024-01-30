@@ -9,7 +9,7 @@
 # Copyright 2024 Ron Dippold
 # ----------------------------------------------------------------------------
 
-VERSION = 1.01
+VERSION = 1.02
 
 # import standard libs
 import argparse
@@ -290,7 +290,7 @@ class Board:
                     break
             if not okay:
                 continue
-            if end < right and numpy.any( slice[end:] == Board.FILLED ):     # can't have any filled ones after we put all ours down
+            if end <= right and numpy.any( slice[end:] == Board.FILLED ):     # can't have any filled ones after we put all ours down
                 continue
 
             #
@@ -745,7 +745,7 @@ if __name__ == "__main__":
     if config.outfile:
         print( f"\n* {args.infile} - {config.rown} rows x {config.coln} cols\n", file=config.outfile )
     
-    board = Board.blank()
+    board      = Board.blank()
     start_time = time.time()
     board_prev = None
 
@@ -768,7 +768,9 @@ if __name__ == "__main__":
                 if args.force:
                     if board_prev:
                         # We used to keep a stack and pop back, but it's likely as anything that the
-                        # first random forced move was wrong, so just go back to that
+                        # first random forced move was wrong and we could spend immense amounts of time
+                        # chasing down a board where the very first random move was totally wrong, so
+                        # just go back to the first known good board.
                         output( f"    Reverting to previous board {board.step}" )
                         board = board_prev.copy()
                     else:
@@ -797,7 +799,7 @@ if __name__ == "__main__":
                     print( f"* Unsolved, but couldn't find anything else to do.", file=config.outfile )
                 
                 if args.force:
-                    if not board_prev:
+                    if not board_prev:  # only set the 'last known good board' if we haven't been forcing it
                         board_prev = board.copy()
                         output( "board_prev set!" )
                     output( f"- Switching to brute force" )

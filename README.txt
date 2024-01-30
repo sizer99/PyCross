@@ -50,11 +50,11 @@ However if you're willing to gamble it will just work:
 is all it takes with the minimum output.
 
 You can see the effects of --force by doing:
-   pycross.py cash_register.nono
+   pycross.py unsolvable.nono
 which will fail with
    Unsolved, but couldn't find anything else to do.
 If you then use
-   pycross.py cash_register.nono --force
+   pycross.py unsolvable.nono --force
 you'll get the answer!
 
 
@@ -66,9 +66,20 @@ you'll get the answer!
 	and since we had nothing checking legality overall, this would leave the board in an illegal
 	state but 'done'.  Now we check when forcing a move, and check board legality after every step.
 	Slows things down, but it's plenty fast anyhow.
+2024 Jan 29 1.02
+	Noticed we were not correctly checking for the very last row/column before
+	blank row/col at the right side/bottom invalidating a position.  For example
+	   1 1 1 5 | -......-......*****-
+	when checking a position like [2, 4, 6, 14] we should see that this leaves
+	an extra filled space to the right and is illegal:
+	   1 1 1 5 | -*.*.*.-.....******-
+	                               ^
+	but we weren't, so were missing that the space before the 5 must be blank:
+	   1 1 1 5 | -*.*.*.-.....-*****-
+	                          ^
+	This makes ice_skates.nono solvable without brute force.
 	
-
-
+	
 
 --------
 
