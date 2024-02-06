@@ -9,7 +9,7 @@
 # Copyright 2024 Ron Dippold
 # ----------------------------------------------------------------------------
 
-VERSION = 1.02
+VERSION = 1.03
 
 # import standard libs
 import argparse
@@ -80,9 +80,9 @@ class Board:
         board.row_solved    = numpy.zeros( config.rown, numpy.uint8 )       # nothing has been solved
         board.col_solved    = numpy.zeros( config.coln, numpy.uint8 )
         board.row_changed   = numpy.ones(  config.rown, numpy.uint8 )       # everything has changed!
-        board.col_changed   = numpy.ones(  config.rown, numpy.uint8 )
+        board.col_changed   = numpy.ones(  config.coln, numpy.uint8 )
         board.row_moves     = numpy.zeros( config.rown, numpy.uint32 )
-        board.col_moves     = numpy.zeros( config.rown, numpy.uint32 )
+        board.col_moves     = numpy.zeros( config.coln, numpy.uint32 )
         return board
        
     def copy( self ) -> 'Board':

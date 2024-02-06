@@ -78,6 +78,10 @@ you'll get the answer!
 	   1 1 1 5 | -*.*.*.-.....-*****-
 	                          ^
 	This makes ice_skates.nono solvable without brute force.
+2024 Feb 6 1.03
+	If the number of cols exceeded the number of rows (ex 15 x 25) we'd
+	hit an out of bounds error because the col_changed array was allocated
+	to row size (cut and paste fail).
 	
 	
 
